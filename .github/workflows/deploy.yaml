@@ -1,0 +1,84 @@
+name: Deploy fastapi-service html to pdf
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+  packages: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install tools
+        run: pip install uv
+      - name: Install dependencies
+        run: uv sync
+      - name: Run tests
+        run: uv run pytest tests/ -s -v
+  sync:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Clear GitHub token credentials
+        run: |
+          git config --unset-all http.https://github.com/.extraheader || true
+          git config --global --unset-all http.extraheader || true
+      - name: Push clean shallow to personal repo
+        run: |
+          git config --global user.name 'Marian505'
+          git config --global user.email 'marian.cakajda@gmail.com'
+          git remote add public https://x-access-token:${{ secrets.PERSONAL_PAT }}@github.com/marian505/fastapi.git || true
+          git remote set-url public https://x-access-token:${{ secrets.PERSONAL_PAT }}@github.com/marian505/fastapi.git || true
+          git checkout --orphan clean-main
+          git add -A
+          git commit -m "Shallow sync $(date)"
+          git push public clean-main:main --force
+  build:
+    needs: sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lowercase repo owner
+        run: echo "OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Lowercase repo repo
+        run: echo "REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ env.REPO }}:latest
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+    - name: Lowercase repo owner
+      run: echo "OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    - name: Lowercase repo repo
+      run: echo "REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Pull image from GHCR
+      run: sudo ctr -n k8s.io images pull --user ${{ github.actor }}:${{ secrets.CR_PAT }} ghcr.io/mycodedynamic/fastapi-services:latest
+    - name: Cleanup previous Helm release
+      run: |
+        helm -n dev uninstall fastapi --no-hooks || true
+        kubectl delete secret ghcr-secret -n dev || true
+        kubectl delete pod -l app.kubernetes.io/instance=fastapi -n dev --force --grace-period=0 --ignore-not-found || true
+    - name: Deploy Helm chart
+      run: helm upgrade --install fastapi ./helm

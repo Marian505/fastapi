@@ -1,0 +1,18 @@
+[project]
+name = "fastapi-services"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.128.6",
+    "httpx>=0.28.1",
+    "pyppeteer>=2.0.0",
+    "pytest>=9.0.2",
+    "python-dotenv>=1.2.1",
+    "uvicorn>=0.38.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

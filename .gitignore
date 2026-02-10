@@ -1,0 +1,11 @@
+/.idea/
+/.vscode/
+/.venv/
+/.env
+/utils/
+/data/
+*.pyc
+*.egg-info
+/temp/
+/generated/
+.pytest_cache/

@@ -1,0 +1,65 @@
+# TODO: WIP, this is not working yet
+openapi: 3.0.3
+info:
+  title: FastAPI HTML to PDF Service
+  version: 0.1.0
+servers:
+  - url: /api
+paths:
+  /ok:
+    get:
+      summary: Health check
+      operationId: get_ok
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /html-to-pdf:
+    post:
+      summary: Convert HTML to PDF (base64)
+      operationId: html_to_pdf
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: PDF as base64
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PdfBase64Response"
+
+  /html-to-pdf-streaming:
+    post:
+      summary: Convert HTML to PDF (stream)
+      operationId: html_to_pdf_streaming
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: PDF stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+components:
+  schemas:
+    PdfBase64Response:
+      type: object
+      required: [pdf_base64]
+      properties:
+        pdf_base64:
+          type: string
